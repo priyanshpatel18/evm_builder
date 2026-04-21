@@ -8,6 +8,8 @@ A minimal EVM counter contract built with Foundry. It stores a single `uint256` 
   - [Table of Contents](#table-of-contents)
   - [Contract Address](#contract-address)
   - [Overview](#overview)
+  - [User Stories](#user-stories)
+  - [Architectural Diagram](#architectural-diagram)
   - [Architecture](#architecture)
   - [Functions](#functions)
     - [Set Number](#set-number)
@@ -44,6 +46,39 @@ The `Counter` contract provides a simple way to:
 - Decrement it via `decrement()` (reverts on underflow)
 
 This project is intended as a learning and testing scaffold using Foundry.
+
+## User Stories
+
+- **As a developer**, I want a minimal stateful contract so I can learn Foundry testing and deployment basics.
+- **As a tester**, I want deterministic state transitions so I can write simple unit tests and fuzz tests.
+- **As an integrator**, I want a public getter for the state so my frontend/scripts can read `number` easily.
+
+## Architectural Diagram
+
+```mermaid
+sequenceDiagram
+    participant U as User/Script
+    participant C as Counter
+    participant S as Storage (slot 0: number)
+
+    Note over U,S: Minimal state update flows
+
+    U->>C: setNumber(newNumber)
+    C->>S: number = newNumber
+    C-->>U: success
+
+    U->>C: increment()
+    C->>S: number = number + 1
+    C-->>U: success
+
+    U->>C: decrement()
+    alt number == 0
+        C-->>U: revert (underflow)
+    else number > 0
+        C->>S: number = number - 1
+        C-->>U: success
+    end
+```
 
 ## Architecture
 

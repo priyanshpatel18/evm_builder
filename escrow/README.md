@@ -8,6 +8,8 @@ A minimal ERC20-for-ERC20 escrow that enables atomic swaps using maker orders. M
   - [Table of Contents](#table-of-contents)
   - [Contract Address](#contract-address)
   - [Overview](#overview)
+  - [User Stories](#user-stories)
+  - [Architectural Diagram](#architectural-diagram)
   - [Architecture](#architecture)
   - [Functions](#functions)
     - [Make (Create Order)](#make-create-order)
@@ -48,6 +50,45 @@ The `Escrow` contract provides a simple order-based token swap primitive:
 - Makers can **cancel** an open order to recover their escrowed tokens
 
 Orders include an `expiration` timestamp to prevent stale fills.
+
+## User Stories
+
+- **As a maker**, I want to escrow my “give” tokens so I can offer a trust-minimized swap.
+- **As a taker**, I want to atomically trade my tokens for the maker’s escrowed tokens without custody risk.
+- **As a maker**, I want to cancel an unfilled order so I can recover my escrowed tokens.
+- **As a user**, I want expirations so stale orders can’t be filled unexpectedly.
+
+## Architectural Diagram
+
+```mermaid
+sequenceDiagram
+    participant M as Maker
+    participant E as Escrow
+    participant K as Taker
+    participant G as TokenGive (ERC20)
+    participant W as TokenWant (ERC20)
+
+    Note over M,E: Maker creates an order by escrowing TokenGive
+    M->>G: approve(Escrow, amountGive)
+    M->>E: make(tokenGive, amountGive, tokenWant, amountWant, expiry)
+    E->>E: validate amounts + expiry
+    E->>G: transferFrom(Maker -> Escrow, amountGive)
+    E-->>M: OrderCreated(id)
+
+    Note over K,E: Taker fills the order (atomic swap)
+    K->>W: approve(Escrow, amountWant)
+    K->>E: take(id)
+    E->>E: require OPEN + not expired + maker != taker
+    E->>W: transferFrom(Taker -> Maker, amountWant)
+    E->>G: transfer(Escrow -> Taker, amountGive)
+    E-->>K: OrderFilled(id)
+
+    Note over M,E: Maker can cancel if still OPEN
+    M->>E: refund(id)
+    E->>E: require OPEN + caller is maker
+    E->>G: transfer(Escrow -> Maker, amountGive)
+    E-->>M: OrderCancelled(id)
+```
 
 ## Architecture
 
@@ -205,26 +246,6 @@ cast call <ESCROW_ADDRESS> "orders(uint256)(address,address,uint256,address,uint
 ```
 
 ## Technical Design
-
-### Account Structure
-
-```mermaid
-sequenceDiagram
-    participant Maker
-    participant Escrow
-    participant Taker
-    participant TokenGive
-    participant TokenWant
-
-    Maker->>TokenGive: approve(Escrow, amountGive)
-    Maker->>Escrow: make(tokenGive, amountGive, tokenWant, amountWant, expiry)
-    Escrow->>TokenGive: transferFrom(Maker -> Escrow, amountGive)
-
-    Taker->>TokenWant: approve(Escrow, amountWant)
-    Taker->>Escrow: take(orderId)
-    Escrow->>TokenWant: transferFrom(Taker -> Maker, amountWant)
-    Escrow->>TokenGive: transfer(Escrow -> Taker, amountGive)
-```
 
 ### Key Components
 

@@ -8,6 +8,8 @@ A simple, owner-managed ERC20 vault that supports *multiple whitelisted tokens*.
   - [Table of Contents](#table-of-contents)
   - [Contract Address](#contract-address)
   - [Overview](#overview)
+  - [User Stories](#user-stories)
+  - [Architectural Diagram](#architectural-diagram)
   - [Architecture](#architecture)
   - [Functions](#functions)
     - [Add Token](#add-token)
@@ -48,6 +50,42 @@ The `Vault` contract provides:
 - **Per-user, per-token accounting** via `balanceOf[user][token]`
 
 This contract is intentionally minimal and designed for learning/testing with Foundry.
+
+## User Stories
+
+- **As an owner**, I want to whitelist supported tokens so users can only deposit known assets.
+- **As a user**, I want to deposit supported ERC20s so I can park balances in a single vault contract.
+- **As a user**, I want to withdraw my deposited ERC20s so I can recover funds at any time.
+- **As a developer**, I want per-user/per-token accounting so integrations can read balances on-chain.
+
+## Architectural Diagram
+
+```mermaid
+sequenceDiagram
+    participant O as Owner
+    participant U as User
+    participant V as Vault
+    participant T as ERC20 Token
+
+    Note over O,V: Admin controls supported tokens
+    O->>V: addToken(token)
+    V-->>O: TokenAdded(token)
+
+    Note over U,V: Deposit flow (user -> vault)
+    U->>T: approve(Vault, amount)
+    U->>V: deposit(token, amount)
+    V->>V: require token supported + amount > 0
+    V->>T: transferFrom(User -> Vault, amount)
+    V->>V: balanceOf[User][token] += amount
+    V-->>U: Deposit event
+
+    Note over U,V: Withdraw flow (vault -> user)
+    U->>V: withdraw(token, amount)
+    V->>V: require amount > 0 + sufficient balance
+    V->>V: balanceOf[User][token] -= amount
+    V->>T: transfer(Vault -> User, amount)
+    V-->>U: Withdraw event
+```
 
 ## Architecture
 
@@ -207,17 +245,6 @@ cast call <VAULT_ADDRESS> "balanceOf(address,address)(uint256)" <USER_ADDRESS> <
 ```
 
 ## Technical Design
-
-### Account Structure
-
-```mermaid
-graph LR
-    Owner[Owner EOA] -->|whitelists| Vault[Vault Contract]
-    User[User EOA] -->|approve + deposit| Vault
-    Vault -->|withdraw| User
-    Vault -->|holds| TokenA[ERC20 Token A]
-    Vault -->|holds| TokenB[ERC20 Token B]
-```
 
 ### Key Components
 
